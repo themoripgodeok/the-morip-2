@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#22211f"><title>스터디룸 예약 · 24시 지원</title>
+<meta name="theme-color" content="#22211f"><title>스터디룸 예약</title>
 <style>
 :root{--ink:#25231f;--muted:#817c72;--paper:#f6f4ef;--card:#fffefa;--line:#e8e3d9;--gold:#a88950;--green:#52765e;--red:#a34f45;--shadow:0 18px 50px rgba(44,38,27,.08)}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Noto Sans KR","Malgun Gothic",sans-serif;letter-spacing:-.025em}
@@ -33,7 +33,7 @@ footer{text-align:center;color:#9a9489;font-size:10px;letter-spacing:.08em;paddi
 <main>
 <section class="card">
 <h2>예약 신청</h2><p class="sub">학생 정보와 휴대폰 뒷번호 4자리를 입력한 뒤 날짜와 시간을 선택해 주세요. 첫 예약 시 회원으로 자동 등록됩니다. 예약은 1시간 단위이며 연속된 시간으로 신청할 수 있습니다.</p>
-<div class="identity"><div><label for="studentName">학생 이름</label><input id="studentName" maxlength="40" placeholder="이름 입력" autocomplete="name"></div><div><label for="seatNo">좌석 번호</label><input id="seatNo" maxlength="12" placeholder="예: 12번"></div></div>
+<div class="identity"><div><label for="studentName">학생 이름</label><input id="studentName" name="booking-student-id" maxlength="40" placeholder="이름 입력" autocomplete="new-password" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"></div><div><label for="seatNo">좌석 번호</label><input id="seatNo" maxlength="12" placeholder="예: 12번"></div></div>
 <label for="pin">휴대폰 뒷번호 4자리</label><input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="휴대폰 뒷번호 4자리" autocomplete="new-password">
 <div class="datebar"><label for="reserveDate">예약 날짜</label><input id="reserveDate" type="date"></div>
 <div class="slots" id="slots"><div class="empty" style="grid-column:1/-1">날짜를 선택하면 예약 가능한 시간이 표시됩니다.</div></div>
@@ -42,7 +42,7 @@ footer{text-align:center;color:#9a9489;font-size:10px;letter-spacing:.08em;paddi
 </section>
 <section class="card">
 <h2>내 예약 확인</h2><p class="sub">예약 신청 때 입력한 이름, 좌석 번호, 휴대폰 뒷번호 4자리를 동일하게 입력한 뒤 조회하세요.</p>
-<div class="identity"><div><label for="lookupName">학생 이름</label><input id="lookupName" maxlength="40" placeholder="이름 입력"></div><div><label for="lookupSeat">좌석 번호</label><input id="lookupSeat" maxlength="12" placeholder="예: 12번"></div></div>
+<div class="identity"><div><label for="lookupName">학생 이름</label><input id="lookupName" name="lookup-student-id" maxlength="40" placeholder="이름 입력" autocomplete="new-password" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"></div><div><label for="lookupSeat">좌석 번호</label><input id="lookupSeat" maxlength="12" placeholder="예: 12번"></div></div>
 <label for="lookupPin">휴대폰 뒷번호 4자리</label><input id="lookupPin" type="password" inputmode="numeric" maxlength="4" placeholder="휴대폰 뒷번호 4자리" autocomplete="off">
 <div class="actions"><button class="primary" id="lookupBtn">내 예약 조회</button></div><div class="notice" id="lookupNotice"></div><div class="account" id="myBookings"><div class="empty">인증 후 예약 내역을 확인할 수 있습니다.</div></div>
 </section></main>
@@ -51,6 +51,7 @@ footer{text-align:center;color:#9a9489;font-size:10px;letter-spacing:.08em;paddi
 const API_URL = "https://morip-2-studyroom-api.tomsmania.workers.dev";
 const $ = id => document.getElementById(id);
 let selectedSlots = [], editingBookingId = "", myBookings = [], currentSlots = [];
+let availabilityRequestId = 0;
 let lastLookupPayload=null,lastMyBookingsSnapshot='';
 function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 $('reserveDate').min=localDate();$('reserveDate').value=localDate();
@@ -70,7 +71,7 @@ function isContinuous(arr){const a=[...arr].sort((x,y)=>mins(x)-mins(y));for(let
 function endTime(t){const m=mins(t)+60;return m===1440?'24:00':`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`}
 function rangeLabel(t){return `${t} – ${endTime(t)}`}
 function renderSlots(slots){currentSlots=slots||[];const root=$('slots');root.innerHTML='';if(!currentSlots.length){root.innerHTML='<div class="empty" style="grid-column:1/-1">운영 가능한 시간이 없습니다.</div>';return}
- currentSlots.forEach(s=>{const own=editingBookingId && selectedSlots.includes(s.time);const b=document.createElement('button');b.type='button';b.dataset.time=s.time;b.className='slot'+(selectedSlots.includes(s.time)?' selected':'');b.disabled=!s.available&&!own;b.innerHTML=`${rangeLabel(s.time)}<small>${s.available?'예약 가능':(own?'내 예약':'예약 완료')}</small>`;
+ currentSlots.forEach(s=>{const own=editingBookingId && selectedSlots.includes(s.time);const b=document.createElement('button');b.type='button';b.dataset.time=s.time;b.className='slot'+(selectedSlots.includes(s.time)?' selected':'');b.disabled=!s.available&&!own;const label=document.createElement('span');label.className='slot-label';label.textContent=rangeLabel(s.time);const small=document.createElement('small');small.textContent=s.available?'예약 가능':(own?'내 예약':'예약 완료');b.append(label,small);
  b.addEventListener('click',()=>{const next=selectedSlots.includes(s.time)?selectedSlots.filter(x=>x!==s.time):[...selectedSlots,s.time];if(!isContinuous(next)){notice('bookingNotice','연속된 시간만 한 번에 선택할 수 있습니다.','err');return}selectedSlots=next.sort((a,b)=>mins(a)-mins(b));notice('bookingNotice','');renderSlots(currentSlots)});root.appendChild(b)});
 }
 // 자동 동기화에서는 시간표 영역을 비우거나 전체 교체하지 않고 기존 버튼만 갱신합니다.
@@ -78,31 +79,38 @@ function updateSlotsWithoutFlicker(slots){
  currentSlots=slots||[];
  const root=$('slots');
  if(!currentSlots.length){
-   if(!root.querySelector('.empty') || root.querySelector('.slot')) renderSlots(currentSlots);
+   if(!root.querySelector('.empty')||root.querySelector('.slot'))renderSlots(currentSlots);
    return;
  }
  const buttons=[...root.querySelectorAll('button.slot')];
- const sameTimes=buttons.length===currentSlots.length && buttons.every((b,i)=>b.dataset.time===currentSlots[i].time);
+ const sameTimes=buttons.length===currentSlots.length&&buttons.every((b,i)=>b.dataset.time===currentSlots[i].time);
  if(!sameTimes){renderSlots(currentSlots);return;}
  buttons.forEach((b,i)=>{
    const s=currentSlots[i],own=!!(editingBookingId&&selectedSlots.includes(s.time));
-   b.className='slot'+(selectedSlots.includes(s.time)?' selected':'');
-   b.disabled=!s.available&&!own;
-   b.innerHTML=`${rangeLabel(s.time)}<small>${s.available?'예약 가능':(own?'내 예약':'예약 완료')}</small>`;
+   const nextClass='slot'+(selectedSlots.includes(s.time)?' selected':'');
+   if(b.className!==nextClass)b.className=nextClass;
+   const nextDisabled=!s.available&&!own;
+   if(b.disabled!==nextDisabled)b.disabled=nextDisabled;
+   const small=b.querySelector('small');
+   const nextLabel=s.available?'예약 가능':(own?'내 예약':'예약 완료');
+   if(small&&small.textContent!==nextLabel)small.textContent=nextLabel;
  });
 }
 async function loadAvailability(options={}){
  const silent=!!options.silent;
  if(!silent)selectedSlots=[];
  const date=$('reserveDate').value;
+ const requestId=++availabilityRequestId;
  if(!date){if(!silent)notice('bookingNotice','예약 날짜를 먼저 선택해 주세요.');return;}
  if(!silent)$('slots').innerHTML='<div class="empty" style="grid-column:1/-1">예약 가능 시간을 확인하고 있습니다.</div>';
  try{
    const r=await api({action:'availability',date,excludeBookingId:editingBookingId});
+   if(requestId!==availabilityRequestId||date!==$('reserveDate').value)return;
    if(!Array.isArray(r.slots))throw Error('서버에서 시간표를 올바르게 받지 못했습니다.');
    if(silent)updateSlotsWithoutFlicker(r.slots);else renderSlots(r.slots);
    if(!silent)notice('bookingNotice','예약 가능한 시간을 선택해 주세요.','ok');
  }catch(e){
+   if(requestId!==availabilityRequestId||date!==$('reserveDate').value)return;
    if(!silent){$('slots').innerHTML='<div class="empty" style="grid-column:1/-1">시간 정보를 불러오지 못했습니다.</div>';notice('bookingNotice',e.message,'err');}
  }
 }
