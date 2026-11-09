@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>더몰입 2관 정기일정 등록</title>
+<style>
+:root{--navy:#14243b;--blue:#2e5b91;--line:#dce3eb;--bg:#f4f7fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:"Noto Sans KR",Arial,sans-serif;color:#1d2938}
+.wrap{max-width:720px;margin:0 auto;padding:20px 14px 40px}
+header{background:linear-gradient(135deg,#14243b,#294b76);color:white;padding:25px 22px;border-radius:16px;margin-bottom:16px}
+header h1{font-size:22px;margin:0 0 8px}header p{font-size:13px;line-height:1.7;margin:0;color:#e4edf7}
+.card{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;margin:12px 0}
+label.title{font-weight:700;display:block;margin-bottom:10px}
+input[type=text]{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;background:white;font-size:15px;color:#172334}
+.time-btn{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#172334;text-align:left;font-size:15px;font-weight:400;min-height:46px}
+.time-btn:disabled{opacity:.5;background:#f1f5f9}
+.picker-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:9999;align-items:flex-end;justify-content:center}
+.picker-backdrop.open{display:flex}
+.picker-panel{width:min(100%,520px);max-height:78vh;background:#fff;border-radius:18px 18px 0 0;padding:16px;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+.picker-head{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 12px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.picker-title{font-weight:700;font-size:16px}
+.picker-close{width:auto;padding:8px 12px;background:#eef2f7;color:#24364b;font-size:14px}
+.picker-list{overflow-y:auto;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:4px 2px 12px}
+.time-option{background:#f5f7fa;color:#24364b;border:1px solid #e2e8f0;padding:12px 4px;font-size:15px;font-weight:500}
+.time-option.selected{background:#e5edf7;border-color:#2e5b91;color:#173b65}
+body.picker-open{overflow:hidden}
+.dayhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.dayhead strong{font-size:17px}
+.off{font-size:14px;display:flex;align-items:center;gap:7px;color:#4b5563}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+small{display:block;color:#64748b;margin:6px 0 0;font-size:12px}
+.disabled{opacity:.45}
+button{width:100%;border:0;border-radius:11px;background:#234a78;color:white;padding:16px;font-size:16px;font-weight:700;cursor:pointer}
+.note{font-size:13px;line-height:1.7;color:#536174}
+#status{margin-top:12px;font-size:14px;line-height:1.6}
+@media(max-width:420px){.times{grid-template-columns:1fr 1fr}.card{padding:15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>더몰입 2관 정기일정 등록</h1>
+<p>매월 1일 제출하는 한 달 고정 정기일정입니다.<br>더몰입 실제 도착시간과 퇴실시간을 입력해 주세요.<br>변동사항은 관리자 사무실에서 수정 바랍니다.</p>
+</header>
+<form id="scheduleForm">
+<div class="card">
+<label class="title" for="student">이름 및 좌석번호</label>
+<input id="student" type="text" placeholder="예: 홍길동(10)" required>
+</div>
+<div id="days"></div>
+<div class="card note">
+<strong>제출 안내</strong><br>
+• 평일 운영시간: 08:00~22:00 / 토요일: 08:00~18:00<br>
+• 이동시간을 고려하여 더몰입 도착·퇴실 시간을 입력해 주세요.<br>
+• 개인 일정으로 등원하지 않는 요일은 ‘미등원’을 체크해 주세요.<br>
+• 제출 내용 검토 후 학부모 승인 요청 메시지가 발송됩니다.
+</div>
+<button type="submit">정기일정 제출</button>
+<div id="status" role="status"></div>
+</form>
+</div>
+<script>
+const FORM_ACTION="https://docs.google.com/forms/d/e/1FAIpQLSdUhfvmRVFoNbZ8hBlwALZDNF9Y5RgW1eRkGYF7KXsp6CbP-w/formResponse";
+const ENTRY={student:"1884265043",monday:"1716508254",tuesday:"1138881790",wednesday:"492490073",thursday:"1170848414",friday:"558754052",saturday:"1647835017"};
+const weekdays=[["monday","월요일",22],["tuesday","화요일",22],["wednesday","수요일",22],["thursday","목요일",22],["friday","금요일",22],["saturday","토요일",18]];
+const days=document.getElementById("days");
+function times(endHour){let arr=[];for(let h=8;h<=endHour;h++){arr.push(String(h).padStart(2,"0")+":00");if(h<endHour)arr.push(String(h).padStart(2,"0")+":30")}return arr}
+weekdays.forEach(([key,label,end])=>{
+ const card=document.createElement("section");card.className="card";card.id="card-"+key;
+ card.innerHTML=`<div class="dayhead"><strong>${label}</strong><label class="off"><input type="checkbox" id="${key}-off"> 미등원</label></div>
+ <div class="times"><div><label for="${key}-start-btn">등원시간</label><button type="button" class="time-btn" id="${key}-start-btn">시간 선택</button><input type="hidden" id="${key}-start" value=""></div>
+ <div><label for="${key}-end-btn">퇴실시간</label><button type="button" class="time-btn" id="${key}-end-btn">시간 선택</button><input type="hidden" id="${key}-end" value=""></div></div>
+ <small>더몰입 실제 도착 및 퇴실 기준 (30분 단위)</small>`;
+ days.appendChild(card);
+ const start=document.getElementById(key+"-start"), finish=document.getElementById(key+"-end");
+ const startBtn=document.getElementById(key+"-start-btn"), finishBtn=document.getElementById(key+"-end-btn");
+ const off=document.getElementById(key+"-off");
+ startBtn.addEventListener("click",()=>openPicker(start,startBtn,times(end),label+" 등원시간"));
+ finishBtn.addEventListener("click",()=>openPicker(finish,finishBtn,times(end),label+" 퇴실시간"));
+ off.addEventListener("change",()=>{startBtn.disabled=finishBtn.disabled=off.checked;card.querySelector(".times").classList.toggle("disabled",off.checked);});
+});
+const picker=document.createElement("div");picker.className="picker-backdrop";picker.innerHTML=`<div class="picker-panel" role="dialog" aria-modal="true" aria-label="시간 선택"><div class="picker-head"><span class="picker-title" id="pickerTitle">시간 선택</span><button type="button" class="picker-close" id="pickerClose">닫기</button></div><div class="picker-list" id="pickerList"></div></div>`;document.body.appendChild(picker);
+let activeInput=null,activeButton=null,savedScrollY=0;
+function closePicker(){picker.classList.remove("open");document.body.classList.remove("picker-open");activeInput=null;activeButton=null;window.scrollTo(0,savedScrollY);}
+picker.querySelector("#pickerClose").addEventListener("click",closePicker);
+picker.addEventListener("click",e=>{if(e.target===picker)closePicker()});
+function openPicker(input,button,values,title){activeInput=input;activeButton=button;savedScrollY=window.scrollY;picker.querySelector("#pickerTitle").textContent=title;const list=picker.querySelector("#pickerList");list.innerHTML="";values.forEach(value=>{const option=document.createElement("button");option.type="button";option.className="time-option"+(input.value===value?" selected":"");option.textContent=value;option.addEventListener("click",()=>{input.value=value;button.textContent=value;closePicker()});list.appendChild(option)});picker.classList.add("open");document.body.classList.add("picker-open");}
+document.getElementById("scheduleForm").addEventListener("submit",e=>{
+ e.preventDefault();
+ const name=document.getElementById("student").value.trim();
+ if(!name){alert("이름 및 좌석번호를 입력해 주세요.");return}
+ const answers={student:name};
+ for(const [key,label,end] of weekdays){
+  const off=document.getElementById(key+"-off").checked;
+  const start=document.getElementById(key+"-start").value, finish=document.getElementById(key+"-end").value;
+  if(off){answers[key]="미등원";continue}
+  if(!start||!finish){alert(label+" 등원시간과 퇴실시간을 모두 선택해 주세요. 또는 미등원을 체크해 주세요.");return}
+  if(finish<=start){alert(label+" 퇴실시간은 등원시간보다 늦어야 합니다.");return}
+  answers[key]=`${start} - ${finish} (더몰입 등원)`;
+ }
+ const post=document.createElement("form");post.method="POST";post.action=FORM_ACTION;post.target="_self";
+ Object.entries(answers).forEach(([key,value])=>{const input=document.createElement("input");input.type="hidden";input.name="entry."+ENTRY[key];input.value=value;post.appendChild(input)});
+ document.body.appendChild(post);
+ document.getElementById("status").textContent="제출이 완료되면 이 화면이 완료 안내 화면으로 바뀝니다. 새 창이 열리지 않습니다.";
+ post.submit();post.remove();
+});
+</script>
+</body>
+</html>
